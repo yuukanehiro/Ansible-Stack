@@ -232,4 +232,36 @@
  
  
  
- 
+- hosts: all
+  become: yes
+  vars_files:
+    - var_yml
+  remote_user: root
+  tasks:
+
+
+    - name: yumアップデート
+      yum: name=* state=latest
+
+
+    - name: SELinux-1. SELinux用のPythonモジュールをインストール
+      yum: name=libselinux-python state=installed
+
+    - name: SELinux-2. SELinuxの無効化
+      selinux: state=disabled
+      register: selinux
+
+    - name: SELinux-3. サーバの再起動
+      shell: sleep 2 && shutdown -r now
+      async: 1
+      poll: 0
+      become: true
+      ignore_errors: true
+
+    - name: SELinux-4. サーバの起動を待つ
+      wait_for_connection:
+        delay: 30
+        timeout: 300
+
+    - name: SELinux-5. 疎通確認
+      ping: 
