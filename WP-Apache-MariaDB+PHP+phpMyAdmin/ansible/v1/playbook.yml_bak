@@ -1,0 +1,269 @@
+---
+- hosts: web
+  become: yes
+  vars_files:
+    - var_yml
+  tasks:
+    #- name: Firewalldの状態チェック
+    #  command: systemctl is-active firewalld
+    #  register: firewalld_result
+    #  changed_when: False
+    #  ignore_errors: True
+ 
+    #- name: Firewalldの起動, 自動起動設定
+    #  service: name=firewalld state=started enabled=yes
+ 
+    # - name: Firewalld設定 80許可
+    #   firewalld: permanent=True port=80/tcp  state=enabled immediate=true
+    # - name: Firewalld設定 443許可
+    #   firewalld: permanent=True port=443/tcp state=enabled immediate=true
+ 
+ 
+    - name: EPEL, remi リポジトリの追加
+      yum:
+        name:  "{{ package }}"
+        state: latest
+      vars:
+        package:
+        - epel-release
+        - http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
+ 
+    - name: Basicツールのインストール
+      yum:
+        name:  "{{ package }}"
+        state: latest
+      vars:
+        package:
+        - zip
+        - unzip
+        - git
+        - gcc
+ 
+ 
+ 
+    - name: Apacheのインストール
+      yum:
+        name:  "{{ package }}"
+        state: latest
+      vars:
+        package:
+        - httpd
+        - httpd-devel
+ 
+ 
+    - name: MariaDBクライアントインストール
+      yum:
+        name:  "{{ package }}"
+        state: latest
+      vars:
+        package:
+        - MySQL-python
+        - mariadb
+ 
+ 
+    - name: PHPインストール
+      yum:
+        name:  "{{ package }}"
+        state: latest
+      vars:
+        package:
+        - php
+        - php-mysql
+        - php-mbstring
+        - php-gd
+        - php-devel
+        - php-xml
+        - php-pdo
+ 
+ 
+    - name: PHPのタイムゾーン設定
+      replace:
+        dest: /etc/php.ini
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      with_items:
+        - { regexp: "^;date.timezone =", replace: "date.timezone = Asia/Tokyo" }
+        - { regexp: "^expose_php = On", replace: "expose_php = Off" }
+ 
+ 
+ 
+ 
+    - name: APPフォルダ作成
+      file: path="{{ app_path }}" state=directory owner=root group=root mode=0755
+ 
+ 
+    - name: Apache設定 Ansibleサーバから設定ファイルを複製
+      copy:
+        src: "{{ item }}"
+        dest: /etc/httpd/conf.d/
+        owner: root
+        group: root
+        mode: 0644
+      with_fileglob:
+        - "./web/etc/httpd/conf.d/*.conf"
+ 
+ 
+    - name: Apache設定 index.phpをDirectoryIndexに登録する
+      replace:
+        dest: /etc/httpd/conf/httpd.conf
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      with_items:
+        - { regexp: "^DirectoryIndex index.html", replace: "DirectoryIndex index.php index.html" }
+        - { regexp: "^User apache", replace: "User {{ usergroup.user.name }}" }
+ 
+
+    - name: Apache設定ファイル作成
+      shell: |
+        cat << EOF > /etc/httpd/conf.d/{{ SITE_NAME }}.conf
+        <VirtualHost *:80>
+          ServerName www.example.net
+          DocumentRoot /var/www/vhosts/{{ SITE_NAME }}/httpdocs/
+        </VirtualHost>
+      register: result
+    - debug:
+        msg: "{{ result }}" 
+ 
+
+ 
+    - name: WEBユーザの作成.1 Salt作成
+      shell: "mktemp -u | awk '{print substr($0, length($0)-8+1)}'"
+      register: salt
+ 
+    - name: WEBユーザの作成.2 パスワード用ハッシュ作成
+      shell: python -c 'import crypt; print crypt.crypt("{{ usergroup.user.password }}", "$6${{ salt.stdout }}")'
+      register: hash_password
+ 
+    - name: WEBユーザの作成.3 ユーザ作成
+      user: name={{ usergroup.user.name }} password={{ hash_password.stdout }} groups={{usergroup.user.group}}
+ 
+    - name: バーチャルホストディレクトリの権限変更
+      file:
+        path: /var/www/vhosts
+        owner: "{{ usergroup.user.name }}"
+        group: apache
+        recurse: yes
+ 
+ 
+ 
+    - name: AnsibleサーバからWordPressファイルを複製
+      synchronize: src=./web/httpdocs/ dest={{ app_path  }}
+ 
+    - name: パーミッション設定
+      file:
+        path: "{{ app_path }}/"
+        state: directory
+        owner: "{{ usergroup.user.name }}"
+        group: apache
+        mode: 0655
+        recurse: yes
+ 
+ 
+    - name: Apacheの起動
+      systemd:
+        name: httpd.service
+        state: restarted
+        daemon_reload: yes
+        enabled: yes
+ 
+ 
+ 
+    - name: MariaDB インストール
+      yum:
+        name:  "{{ package }}"
+        state: latest
+      vars:
+        package:
+        - MySQL-python
+        - mariadb
+        - mariadb-libs
+        - mariadb-server
+        - mariadb-devel
+ 
+ 
+ 
+ 
+    - name: MySQL起動, 自動起動
+      service: name=mariadb state=started enabled=yes
+ 
+    - name: DBの作成
+      mysql_db: name={{ dbName }} state=present
+ 
+ 
+    - name: DBユーザの作成
+      mysql_user:
+        name: "{{ dbUser }}"
+        password: "{{ dbPassword }}"
+        priv: "{{ dbName }}.*:ALL"
+        host: "{{ dbNetwork }}"
+        state: present
+ 
+ 
+    - name: ローカル接続制限無効化
+      replace: >
+        dest=/etc/my.cnf
+        regexp='^bind-address'
+        replace='#bind-address'
+ 
+ 
+    - name: MySQL再起動, 自動起動
+      service: name=mariadb state=restarted enabled=yes
+ 
+ 
+    - name: phpMyAdminインストール
+      yum:
+        name:  "{{ package }}"
+        state: latest
+      vars:
+        package:
+        - phpMyAdmin
+ 
+ 
+    - name: phpMyAdminアクセス権限の変更 ローカルネットワークのアクセス許可
+      replace:
+        dest: /etc/httpd/conf.d/phpMyAdmin.conf
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      with_items:
+        - { regexp: "Require ip 127.0.0.1", replace: "Require ip 127.0.0.1 {{ mynetwork }}" }
+ 
+    - name: Apache再起動
+      service: name=httpd state=restarted enabled=yes
+ 
+ 
+ 
+ 
+ 
+- hosts: all
+  become: yes
+  vars_files:
+    - var_yml
+  remote_user: root
+  tasks:
+ 
+ 
+    - name: yumアップデート
+      yum: name=* state=latest
+ 
+ 
+    - name: SELinux-1. SELinux用のPythonモジュールをインストール
+      yum: name=libselinux-python state=installed
+ 
+    - name: SELinux-2. SELinuxの無効化
+      selinux: state=disabled
+      register: selinux
+ 
+    - name: SELinux-3. サーバの再起動
+      shell: sleep 2 && shutdown -r now
+      async: 1
+      poll: 0
+      become: true
+      ignore_errors: true
+ 
+    - name: SELinux-4. サーバの起動を待つ
+      wait_for_connection:
+        delay: 30
+        timeout: 300
+ 
+    - name: SELinux-5. 疎通確認
+      ping:

@@ -24,12 +24,11 @@ $ sudo su -
 ```
 
 ```
-# cd ./Ansible-Stack/WP-Apache-MariaDB+PHP+phpMyAdmin/shell
 # sh ./Ansible-Stack/WP-Apache-MariaDB+PHP+phpMyAdmin/shell/1_set_Up_Ansible_Host.sh
 ```
 
 
-<p>2. Setting Environmentr</p>
+<p>2. Setting Environment</p>
 
 
 ```
@@ -79,7 +78,6 @@ and check to make sure that only the key(s) you wanted were added.
 ```
 # vi /etc/ansible/hosts
  
-
 [web]
 192.168.11.101
 192.168.11.102
@@ -109,8 +107,25 @@ and check to make sure that only the key(s) you wanted were added.
 ```
 
 
-<p>3. Execute!</p>
+<p>3. Execute! Remote</p>
 
+```
+$ ansible-playbook ./Ansible-Stack/WP-Apache-MariaDB+PHP+phpMyAdmin/ansible/v1/playbook.yml
+```
+
+
+
+<p>3`. Execute! Local</p>
+```
+# vi /etc/ansible/hosts
+
+[web]
+localhost
+```
+
+```
+$ ansible-playbook -i /etc/ansible/hosts playbook.yml --connection=local
+```
 
 
 

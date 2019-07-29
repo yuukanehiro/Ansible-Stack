@@ -4,9 +4,10 @@ usergroup:
     name: webadmin
     group: apache
     password: webadminPassword
-app_path: "/var/www/vhosts/www.example.net/httpdocs/"
+SITE_NAME: www.yuulinux.tokyo
+app_path: /var/www/vhosts/{{ SITE_NAME }}/httpdocs/
 mysql_root_password: rootdbpassword
-ssh_port: 722
+ssh_port: 22
 mynetwork: 192.168.11.0/24
 dbName: wpdb
 dbUser: wpdbuser
