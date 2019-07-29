@@ -1,0 +1,14 @@
+---
+usergroup:
+  user:
+    name: webadmin
+    group: apache
+    password: webadminPassword
+app_path: "/var/www/vhosts/www.example.net/httpdocs/"
+mysql_root_password: rootdbpassword
+ssh_port: 722
+mynetwork: 192.168.11.0/24
+dbName: wpdb
+dbUser: wpdbuser
+dbPassword: wpP@ssWordYuruHack
+dbNetwork: localhost
