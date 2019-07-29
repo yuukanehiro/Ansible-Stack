@@ -116,6 +116,7 @@ $ ansible-playbook ./Ansible-Stack/WP-Apache-MariaDB+PHP+phpMyAdmin/ansible/v1/p
 
 
 <p>3`. Execute! Local</p>
+
 ```
 # vi /etc/ansible/hosts
 
